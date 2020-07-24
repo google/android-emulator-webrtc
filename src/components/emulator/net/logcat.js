@@ -15,7 +15,7 @@
  */
 import { EventEmitter } from "events";
 import "../../../proto/emulator_controller_pb";
-import { EmulatorControllerService } from "../../../proto/emulator_web_client";
+import { EmulatorControllerService } from "./emulator_web_client";
 
 /**
  * Observe the logcat stream from the emulator.

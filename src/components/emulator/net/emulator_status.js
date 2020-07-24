@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 import { Empty } from "google-protobuf/google/protobuf/empty_pb";
-import { EmulatorControllerService } from "../../../proto/emulator_web_client";
+import { EmulatorControllerService } from "./emulator_web_client";
 
 /**
  * Gets the status of the emulator, parsing the hardware config into something

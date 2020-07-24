@@ -23,10 +23,10 @@ import JsepProtocol from "./jsep_protocol_driver.js";
 import {
   RtcService,
   EmulatorControllerService,
-} from "../../../proto/emulator_web_client";
+} from "./emulator_web_client";
 import { Badge } from "@material-ui/core";
 
-jest.mock("../../../proto/emulator_web_client");
+jest.mock("./emulator_web_client");
 
 beforeEach(() => {
   // Clear all instances and calls to constructor and all methods:
@@ -54,8 +54,8 @@ describe("Basic jsep protocol with polling.", () => {
   });
 
 
-  RtcService.prototype.requestRtcStream = requestRtcStream;
-  RtcService.prototype.receiveJsepMessage = receiveJsepMessage;
+  rtcServiceInstance.requestRtcStream = requestRtcStream;
+  rtcServiceInstance.receiveJsepMessage = receiveJsepMessage;
 
   it("calls request rtc stream", () => {
     jsep.startStream();

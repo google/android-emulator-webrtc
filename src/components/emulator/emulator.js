@@ -23,7 +23,7 @@ import * as Proto from "../../proto/emulator_controller_pb";
 import {
   RtcService,
   EmulatorControllerService,
-} from "../../proto/emulator_web_client";
+} from "./net/emulator_web_client";
 
 const PngView = withMouseKeyHandler(EmulatorPngView);
 const RtcView = withMouseKeyHandler(EmulatorWebrtcView);
@@ -185,12 +185,12 @@ class Emulator extends Component {
         height={height}
         emulator={this.emulator}
         jsep={this.jsep}
-        onStateChange={this.onStateChange}
+        onStateChange={onStateChange}
         poll={poll}
         muted={muted}
         volume={volume}
         onError={onError}
-        onAudioStateChange={this._onAudioStateChange}
+        onAudioStateChange={onAudioStateChange}
       />
     );
   }

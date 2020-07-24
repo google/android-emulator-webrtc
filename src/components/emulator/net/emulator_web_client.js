@@ -13,8 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { EmulatorControllerClient } from "../proto/emulator_controller_grpc_web_pb";
-import { RtcClient } from "../proto/rtc_service_grpc_web_pb";
+import { EmulatorControllerClient } from "../../../proto/emulator_controller_grpc_web_pb";
+import { RtcClient } from "../../../proto/rtc_service_grpc_web_pb";
 import { GrpcWebClientBase } from "grpc-web";
 import { EventEmitter } from "events";
 

@@ -1,6 +1,6 @@
 {
   "name": "android-emulator-webrtc",
-  "version": "0.9.7",
+  "version": "1.0.0",
   "description": "Android Emulator WebRTC module",
   "scripts": {
     "build": "webpack --mode production",
@@ -48,9 +48,10 @@
     "webpack-cli": "^3.3.12",
     "yalc": "^1.0.0-pre.40"
   },
+  "files": ["emulator/**"],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/google/android-emulator-container-scripts.git"
+    "url": "https://github.com/google/android-emulator-webrtc"
   },
   "keywords": [
     "webrtc",
@@ -60,7 +61,7 @@
   "author": "Erwin Jansen <pokowaka@gmail.com> (https://github.com/pokowaka/)",
   "license": "Apache-2.0",
   "bugs": {
-    "url": "https://github.com/google/android-emulator-container-scripts/issues"
+    "url": "https://github.com/google/android-emulator-webrtc/issues"
   },
-  "homepage": "https://github.com/google/android-emulator-container-scripts#js/android-emulator-webrtc/README.MD"
+  "homepage": "https://github.com/google/android-emulator-webrtc/README.MD"
 }
