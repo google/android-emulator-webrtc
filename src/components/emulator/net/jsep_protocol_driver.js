@@ -59,7 +59,6 @@ export default class JsepProtocol {
     this.guid = null;
     this.stream = null;
     this.event_forwarders = {};
-    if (typeof this.rtc.receiveJsepMessages !== "function") this.poll = true;
     if (onConnect) this.events.on("connected", onConnect);
     if (onDisconnect) this.events.on("disconnected", onDisconnect);
   }

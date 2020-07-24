@@ -148,7 +148,7 @@ class Emulator extends Component {
    * "GoBack"          -  Open the previous screen you were looking at.
    *
    * See https://developer.mozilla.org/en-US/docs/Web/API/KeyboardEvent/key/Key_Values for
-   * a list of valid values.
+   * a list of valid values you can send as well.
    */
   sendKey = (key) => {
     var request = new Proto.KeyboardEvent();
@@ -159,7 +159,9 @@ class Emulator extends Component {
 
   _onAudioStateChange = (s) => {
     const { onAudioStateChange } = this.props;
-    this.setState({ audio: s }, onAudioStateChange(s));
+    this.setState({ audio: s }, () => {
+      onAudioStateChange(s);
+    });
   };
 
   render() {
