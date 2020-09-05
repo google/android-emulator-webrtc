@@ -41,7 +41,7 @@ export default class EmulatorWebrtcView extends Component {
   };
 
   static defaultProps = {
-    muted: false,
+    muted: true,
     volume: 1.0,
     onError: (e) => console.error("WebRTC error: " + e),
     onAudioStateChange: (e) =>
@@ -62,7 +62,6 @@ export default class EmulatorWebrtcView extends Component {
 
   componentWillUnmount() {
     this.props.jsep.disconnect();
-    this.setState;
   }
 
   componentDidMount() {
@@ -114,7 +113,7 @@ export default class EmulatorWebrtcView extends Component {
     if (possiblePromise) {
       possiblePromise
         .then((_) => {
-          console.info("Automatic playback started!");
+          console.debug("Automatic playback started!");
         })
         .catch((error) => {
           // Notify listeners that we cannot start.

@@ -111,7 +111,7 @@ export default class JsepProtocol {
         self._streamJsepMessage();
       } else {
         // Poll pump messages, go/envoy based proxy.
-        console.info("Polling jsep messages.");
+        console.debug("Polling jsep messages.");
         self._receiveJsepMessage();
       }
     });

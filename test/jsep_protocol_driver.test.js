@@ -18,13 +18,12 @@ import "regenerator-runtime/runtime"; // Somehow needed for jest to be happy wit
 
 import * as Proto from "../src/proto/emulator_controller_pb";
 import * as Rtc from "../src/proto/rtc_service_pb";
-
+import { render, waitFor, screen } from '@testing-library/react'
 import JsepProtocol from "../src/components/emulator/net/jsep_protocol_driver.js";
 import {
   RtcService,
   EmulatorControllerService,
 } from "../src/proto/emulator_web_client";
-import { Badge } from "@material-ui/core";
 
 jest.mock("../src/proto/emulator_web_client");
 
