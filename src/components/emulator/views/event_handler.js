@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+import PropTypes from "prop-types";
 import React from "react";
 import * as Proto from "../../../proto/emulator_controller_pb";
 import EmulatorStatus from "../net/emulator_status";
@@ -40,35 +41,41 @@ export default function withMouseKeyHandler(WrappedComponent) {
           mouseDown: false, // Current state of mouse
           // Current button pressed.
           // In proto, 0 is "no button", 1 is left, and 2 is right.
-          mouseButton: 0
-        }
+          mouseButton: 0,
+        },
       };
       this.handler = React.createRef();
       const { emulator } = this.props;
       this.status = new EmulatorStatus(emulator);
     }
 
+    static propTypes = {
+      /** The emulator object */
+      emulator: PropTypes.object.isRequired,
+      /** Jsep protocol driver, used to send mouse & touch events. */
+      jsep: PropTypes.object.isRequired,
+    };
+
     componentDidMount() {
       this.getScreenSize();
     }
 
     getScreenSize() {
-      this.status.updateStatus(state => {
+      this.status.updateStatus((state) => {
         this.setState({
           deviceWidth: parseInt(state.hardwareConfig["hw.lcd.width"]) || 1080,
-          deviceHeight: parseInt(state.hardwareConfig["hw.lcd.height"]) || 1920
+          deviceHeight: parseInt(state.hardwareConfig["hw.lcd.height"]) || 1920,
         });
       });
     }
 
-    onContextMenu = e => {
+    onContextMenu = (e) => {
       e.preventDefault();
     };
 
-    setCoordinates = () => {
+    scaleCoordinates = (xp, yp) => {
       // It is totally possible that we send clicks that are offscreen..
       const { deviceWidth, deviceHeight } = this.state;
-      const { mouseDown, mouseButton, xp, yp } = this.state.mouse;
       const { clientHeight, clientWidth } = this.handler.current;
       const scaleX = deviceWidth / clientWidth;
       const scaleY = deviceHeight / clientHeight;
@@ -77,11 +84,16 @@ export default function withMouseKeyHandler(WrappedComponent) {
 
       if (isNaN(x) || isNaN(y)) {
         console.log("Ignoring: x: " + x + ", y:" + y);
-        return;
+        return { x: -1, y: -1 };
       }
+      return { x: x, y: y, scaleX: scaleX, scaleY: scaleY };
+    };
 
+    setMouseCoordinates = () => {
       // Forward the request to the jsep engine.
+      const { mouseDown, mouseButton, xp, yp } = this.state.mouse;
       var request = new Proto.MouseEvent();
+      const { x, y } = this.scaleCoordinates(xp, yp);
       request.setX(x);
       request.setY(y);
       request.setButtons(mouseDown ? mouseButton : 0);
@@ -89,8 +101,8 @@ export default function withMouseKeyHandler(WrappedComponent) {
       jsep.send("mouse", request);
     };
 
-    handleKey = eventType => {
-      return e => {
+    handleKey = (eventType) => {
+      return (e) => {
         var request = new Proto.KeyboardEvent();
         request.setEventtype(
           eventType === "KEYDOWN"
@@ -106,7 +118,7 @@ export default function withMouseKeyHandler(WrappedComponent) {
     };
 
     // Properly handle the mouse events.
-    handleMouseDown = e => {
+    handleMouseDown = (e) => {
       const { offsetX, offsetY } = e.nativeEvent;
       this.setState(
         {
@@ -116,42 +128,88 @@ export default function withMouseKeyHandler(WrappedComponent) {
             mouseDown: true,
             // In browser's MouseEvent.button property,
             // 0 stands for left button and 2 stands for right button.
-            mouseButton: e.button === 0 ? 1 : e.button === 2 ? 2 : 0
-          }
+            mouseButton: e.button === 0 ? 1 : e.button === 2 ? 2 : 0,
+          },
         },
-        this.setCoordinates
+        this.setMouseCoordinates
       );
     };
 
-    handleMouseUp = e => {
+    handleMouseUp = (e) => {
       const { offsetX, offsetY } = e.nativeEvent;
       this.setState(
         {
-          mouse: { xp: offsetX, yp: offsetY, mouseDown: false, mouseButton: 0 }
+          mouse: { xp: offsetX, yp: offsetY, mouseDown: false, mouseButton: 0 },
         },
-        this.setCoordinates
+        this.setMouseCoordinates
       );
     };
 
-    handleMouseMove = e => {
+    handleMouseMove = (e) => {
       // Let's not overload the endpoint with useless events.
-      if (!this.state.mouse.mouseDown)
-        return;
+      if (!this.state.mouse.mouseDown) return;
 
       const { offsetX, offsetY } = e.nativeEvent;
       var mouse = this.state.mouse;
       mouse.xp = offsetX;
       mouse.yp = offsetY;
-      this.setState({ mouse: mouse }, this.setCoordinates);
+      this.setState({ mouse: mouse }, this.setMouseCoordinates);
     };
 
-    preventDragHandler = e => {
+    setTouchCoordinates = (type, touches) => {
+      const scaleCoordinates = this.scaleCoordinates;
+      const touchesToSend = Object.keys(touches).map((index) => {
+        const touch = touches[index];
+        const { clientX, clientY, identifier, force, radiusX, radiusY } = touch;
+        const { x, y, scaleX, scaleY } = scaleCoordinates(clientX, clientY);
+        const scaledRadiusX = 2 * radiusX * scaleX;
+        const scaledRadiusY = 2 * radiusY * scaleY;
+
+        const protoTouch = new Proto.Touch();
+        protoTouch.setX(x);
+        protoTouch.setY(y);
+        protoTouch.setIdentifier(identifier);
+        protoTouch.setPressure(force);
+        protoTouch.setTouchMajor(Math.max(scaledRadiusX, scaledRadiusY));
+        protoTouch.setTouchMinor(Math.min(scaledRadiusX, scaledRadiusY));
+
+        return protoTouch;
+      });
+
+      // Make the grpc call.
+      const requestTouchEvent = new Proto.TouchEvent();
+      requestTouchEvent.setTouchesList(touchesToSend);
+      const { jsep } = this.props;
+      jsep.send("touch", requestTouchEvent);
+    };
+
+    handleTouchStart = (e) => {
+      // Make sure they are not processed as mouse events later on.
+      // See https://developer.mozilla.org/en-US/docs/Web/API/Touch_events
+      e.preventDefault();
+      this.setTouchCoordinates(e.nativeEvent.type, e.nativeEvent.touches);
+    };
+
+    handleTouchMove = (e) => {
+      e.preventDefault();
+      this.setTouchCoordinates(e.nativeEvent.type, e.nativeEvent.touches);
+    };
+
+    handleTouchEnd = (e) => {
+      e.preventDefault();
+      this.setTouchCoordinates(e.nativeEvent.type, e.nativeEvent.touches);
+    };
+
+    preventDragHandler = (e) => {
       e.preventDefault();
     };
 
     render() {
       return (
         <div /* handle interaction */
+          onTouchStart={this.handleTouchStart}
+          onTouchMove={this.handleTouchMove}
+          onTouchEnd={this.handleTouchEnd}
           onMouseDown={this.handleMouseDown}
           onMouseMove={this.handleMouseMove}
           onMouseUp={this.handleMouseUp}
@@ -168,7 +226,7 @@ export default function withMouseKeyHandler(WrappedComponent) {
             padding: "0",
             border: "0",
             display: "inline-block",
-            width: "100%"
+            width: "100%",
           }}
         >
           <WrappedComponent {...this.props} />

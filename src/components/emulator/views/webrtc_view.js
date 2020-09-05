@@ -41,10 +41,11 @@ export default class EmulatorWebrtcView extends Component {
   };
 
   static defaultProps = {
-    muted: false,
+    muted: true,
     volume: 1.0,
     onError: (e) => console.error("WebRTC error: " + e),
-    onAudioStateChange: (e) => console.log("Webrtc audio became available: " + e),
+    onAudioStateChange: (e) =>
+      console.log("Webrtc audio became available: " + e),
   };
 
   constructor(props) {
@@ -66,13 +67,17 @@ export default class EmulatorWebrtcView extends Component {
   componentDidMount() {
     this.props.jsep.on("connected", this.onConnect);
     this.props.jsep.on("disconnected", this.onDisconnect);
-    this.setState({ connect: "connecting" }, this.broadcastState);
-    this.props.jsep.startStream();
+    this.setState({ connect: "connecting" }, () => {
+      this.props.jsep.startStream();
+      this.broadcastState();
+    });
   }
 
   onDisconnect = () => {
     this.setState({ connect: "disconnected" }, this.broadcastState);
-    this.setState({ audio: false }, this.props.onAudioStateChange(false));
+    this.setState({ audio: false }, () => {
+      this.props.onAudioStateChange(false);
+    });
   };
 
   onConnect = (track) => {
@@ -88,7 +93,9 @@ export default class EmulatorWebrtcView extends Component {
     }
     video.srcObject.addTrack(track);
     if (track.kind === "audio") {
-      this.setState({ audio: true }, this.props.onAudioStateChange(true));
+      this.setState({ audio: true }, () => {
+        this.props.onAudioStateChange(true);
+      });
     }
   };
 
@@ -101,15 +108,18 @@ export default class EmulatorWebrtcView extends Component {
       return;
     }
 
-    video
-      .play()
-      .then((_) => {
-        console.info("Automatic playback started!");
-      })
-      .catch((error) => {
-        // Notify listeners that we cannot start.
-        this.onError(error);
-      });
+    // See https://developer.mozilla.org/en-US/docs/Web/API/HTMLMediaElement/play
+    const possiblePromise = video.play();
+    if (possiblePromise) {
+      possiblePromise
+        .then((_) => {
+          console.debug("Automatic playback started!");
+        })
+        .catch((error) => {
+          // Notify listeners that we cannot start.
+          this.onError(error);
+        });
+    }
   };
 
   onCanPlay = (e) => {

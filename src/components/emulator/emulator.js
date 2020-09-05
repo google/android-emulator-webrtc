@@ -53,8 +53,8 @@ const RtcView = withMouseKeyHandler(EmulatorWebrtcView);
  *
  * #### Pressing hardware buttons
  *
- * This component has a method `sendKey` to sends a key to the emulator.
- * You can use this to send physical hardwar events to the emulator for example:
+ * This component has a method `sendKey` that sends a key to the emulator.
+ * You can use this to send physical button events to the emulator for example:
  *
  * "AudioVolumeDown" - 	Decreases the audio volume.
  * "AudioVolumeUp"   -	Increases the audio volume.
@@ -62,7 +62,6 @@ const RtcView = withMouseKeyHandler(EmulatorWebrtcView);
  * "AppSwitch"       -  Should bring up the application switcher dialog.
  * "GoHome"          -  Go to the home screen.
  * "GoBack"          -  Open the previous screen you were looking at.
- *
  *
  */
 class Emulator extends Component {
@@ -85,6 +84,8 @@ class Emulator extends Component {
     height: PropTypes.number,
     /** The underlying view used to display the emulator, one of ["webrtc", "png"] */
     view: PropTypes.oneOf(["webrtc", "png"]).isRequired,
+    /** A [GeolocationCoordinates](https://developer.mozilla.org/en-US/docs/Web/API/GeolocationCoordinates) like object indicating where the device is. */
+    gps: PropTypes.object,
     /** True if polling should be used, only set this to true if you are using the go webgrpc proxy. */
     poll: PropTypes.bool,
     /** Callback that will be invoked in case of gRPC errors. */
@@ -101,10 +102,10 @@ class Emulator extends Component {
       console.error(e);
     },
     onAudioStateChange: (s) => {
-      console.log("emulator audio: " + s);
+      console.debug("emulator audio: " + s);
     },
     onStateChange: (s) => {
-      console.log("emulator state: " + s);
+      console.debug("emulator state: " + s);
     },
   };
 
@@ -135,6 +136,31 @@ class Emulator extends Component {
     return prevState;
   }
 
+  componentDidMount = () => {
+    this.updateLocation();
+  };
+
+  componentDidUpdate = (prevProps) => {
+    if (prevProps.gps !== this.props.gps) {
+      this.updateLocation();
+    }
+  };
+
+  updateLocation = () => {
+    const { gps } = this.props;
+    if (typeof gps === "undefined") {
+      return;
+    }
+
+    const state = new Proto.GpsState();
+    state.setLatitude(gps.latitude);
+    state.setLongitude(gps.longitude);
+    state.setAltitude(gps.altitude);
+    state.setBearing(gps.heading);
+    state.setSpeed(gps.speed);
+    this.emulator.setGps(state);
+  };
+
   /**
    * Sends the given key to the emulator.
    *
@@ -148,7 +174,7 @@ class Emulator extends Component {
    * "GoBack"          -  Open the previous screen you were looking at.
    *
    * See https://developer.mozilla.org/en-US/docs/Web/API/KeyboardEvent/key/Key_Values for
-   * a list of valid values.
+   * a list of valid values you can send as well.
    */
   sendKey = (key) => {
     var request = new Proto.KeyboardEvent();
@@ -159,7 +185,9 @@ class Emulator extends Component {
 
   _onAudioStateChange = (s) => {
     const { onAudioStateChange } = this.props;
-    this.setState({ audio: s }, onAudioStateChange(s));
+    this.setState({ audio: s }, () => {
+      onAudioStateChange(s);
+    });
   };
 
   render() {
@@ -170,7 +198,6 @@ class Emulator extends Component {
       poll,
       muted,
       onStateChange,
-      onAudioStateChange,
       onError,
       volume,
     } = this.props;
@@ -183,7 +210,7 @@ class Emulator extends Component {
         height={height}
         emulator={this.emulator}
         jsep={this.jsep}
-        onStateChange={this.onStateChange}
+        onStateChange={onStateChange}
         poll={poll}
         muted={muted}
         volume={volume}
