@@ -157,11 +157,15 @@ export default function withMouseKeyHandler(WrappedComponent) {
     };
 
     setTouchCoordinates = (type, touches) => {
+      // We need to calculate the offset of the touch events.
+      const rect = this.handler.current.getBoundingClientRect();
       const scaleCoordinates = this.scaleCoordinates;
       const touchesToSend = Object.keys(touches).map((index) => {
         const touch = touches[index];
         const { clientX, clientY, identifier, force, radiusX, radiusY } = touch;
-        const { x, y, scaleX, scaleY } = scaleCoordinates(clientX, clientY);
+        const offsetX = clientX - rect.left;
+        const offsetY = clientY - rect.top;
+        const { x, y, scaleX, scaleY } = scaleCoordinates(offsetX, offsetY);
         const scaledRadiusX = 2 * radiusX * scaleX;
         const scaledRadiusY = 2 * radiusY * scaleY;
 
@@ -170,8 +174,9 @@ export default function withMouseKeyHandler(WrappedComponent) {
         protoTouch.setY(y);
         protoTouch.setIdentifier(identifier);
         protoTouch.setPressure(force);
-        protoTouch.setTouchMajor(Math.max(scaledRadiusX, scaledRadiusY));
-        protoTouch.setTouchMinor(Math.min(scaledRadiusX, scaledRadiusY));
+        // These cause issues with touch events.
+        // protoTouch.setTouchMajor(Math.max(scaledRadiusX, scaledRadiusY));
+        // protoTouch.setTouchMinor(Math.min(scaledRadiusX, scaledRadiusY));
 
         return protoTouch;
       });
@@ -186,22 +191,30 @@ export default function withMouseKeyHandler(WrappedComponent) {
     handleTouchStart = (e) => {
       // Make sure they are not processed as mouse events later on.
       // See https://developer.mozilla.org/en-US/docs/Web/API/Touch_events
-      e.preventDefault();
-      this.setTouchCoordinates(e.nativeEvent.type, e.nativeEvent.touches);
+      if (e.cancelable) {
+        e.preventDefault();
+      }
+      this.setTouchCoordinates(e.nativeEvent.type, e.nativeEvent.changedTouches);
     };
 
     handleTouchMove = (e) => {
-      e.preventDefault();
-      this.setTouchCoordinates(e.nativeEvent.type, e.nativeEvent.touches);
+      if (e.cancelable) {
+        e.preventDefault();
+      }
+      this.setTouchCoordinates(e.nativeEvent.type, e.nativeEvent.changedTouches);
     };
 
     handleTouchEnd = (e) => {
-      e.preventDefault();
-      this.setTouchCoordinates(e.nativeEvent.type, e.nativeEvent.touches);
+      if (e.cancelable) {
+        e.preventDefault();
+      }
+      this.setTouchCoordinates(e.nativeEvent.type, e.nativeEvent.changedTouches);
     };
 
     preventDragHandler = (e) => {
-      e.preventDefault();
+      if (e.cancelable) {
+        e.preventDefault();
+      }
     };
 
     render() {
