@@ -156,6 +156,25 @@ export default function withMouseKeyHandler(WrappedComponent) {
       this.setState({ mouse: mouse }, this.setMouseCoordinates);
     };
 
+
+    /**
+     * Scales an axis to linux input codes that the emulator understands.
+     *
+     * @param {*} value The value to transform.
+     * @param {*} minIn The minimum value, the lower bound of the value param.
+     * @param {*} maxIn The maximum value, the upper bound of the value param.
+     */
+    scaleAxis = (value, minIn,  maxIn) => {
+      const minOut = 0x0; // EV_ABS_MIN
+      const maxOut = 0x7FFF; // EV_ABS_MAX
+      const rangeOut = maxOut - minOut;
+      const rangeIn = (maxIn - minIn);
+      if (rangeIn < 1) {
+          return minOut + rangeOut / 2;
+      }
+      return Math.round((value - minIn) * rangeOut / rangeIn + minOut);
+  }
+
     setTouchCoordinates = (type, touches) => {
       // We need to calculate the offset of the touch events.
       const rect = this.handler.current.getBoundingClientRect();
@@ -173,10 +192,12 @@ export default function withMouseKeyHandler(WrappedComponent) {
         protoTouch.setX(x);
         protoTouch.setY(y);
         protoTouch.setIdentifier(identifier);
-        protoTouch.setPressure(force);
-        // These cause issues with touch events.
-        // protoTouch.setTouchMajor(Math.max(scaledRadiusX, scaledRadiusY));
-        // protoTouch.setTouchMinor(Math.min(scaledRadiusX, scaledRadiusY));
+
+        // Normalize the force
+        const MT_PRESSURE = this.scaleAxis(force, 0, 1)
+        protoTouch.setPressure(MT_PRESSURE);
+        protoTouch.setTouchMajor(Math.max(scaledRadiusX, scaledRadiusY));
+        protoTouch.setTouchMinor(Math.min(scaledRadiusX, scaledRadiusY));
 
         return protoTouch;
       });
@@ -208,6 +229,7 @@ export default function withMouseKeyHandler(WrappedComponent) {
       if (e.cancelable) {
         e.preventDefault();
       }
+      console.log(JSON.stringify(e.nativeEvent.touches));
       this.setTouchCoordinates(e.nativeEvent.type, e.nativeEvent.changedTouches);
     };
 
