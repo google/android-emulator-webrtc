@@ -1,5 +1,8 @@
 src/proto/
 
+# distribution
+dist
+
 # dependencies
 node_modules
 .pnp
