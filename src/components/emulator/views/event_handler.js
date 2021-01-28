@@ -189,15 +189,15 @@ export default function withMouseKeyHandler(WrappedComponent) {
         const scaledRadiusY = 2 * radiusY * scaleY;
 
         const protoTouch = new Proto.Touch();
-        protoTouch.setX(x);
-        protoTouch.setY(y);
+        protoTouch.setX(x | 0);
+        protoTouch.setY(y | 0);
         protoTouch.setIdentifier(identifier);
 
         // Normalize the force
         const MT_PRESSURE = this.scaleAxis(force, 0, 1)
         protoTouch.setPressure(MT_PRESSURE);
-        protoTouch.setTouchMajor(Math.max(scaledRadiusX, scaledRadiusY));
-        protoTouch.setTouchMinor(Math.min(scaledRadiusX, scaledRadiusY));
+        protoTouch.setTouchMajor(Math.max(scaledRadiusX, scaledRadiusY) | 0);
+        protoTouch.setTouchMinor(Math.min(scaledRadiusX, scaledRadiusY) | 0);
 
         return protoTouch;
       });

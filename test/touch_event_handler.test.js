@@ -1,6 +1,6 @@
 
 /*
- * Copyright 2020 The Android Open Source Project
+ * Copyright 2021 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License")
  * you may not use this file except in compliance with the License.
@@ -42,17 +42,7 @@ class FakeEmulator extends React.Component {
   }
 }
 
-const fakeMouseEvent = (tp, x, y, props = {}) => {
-  const event = new MouseEvent(tp, {
-    bubbles: true,
-    cancelable: true,
-    ...props,
-  });
 
-  Object.defineProperty(event, "offsetX", { get: () => x });
-  Object.defineProperty(event, "offsetY", { get: () => y });
-  return event;
-};
 
 const fakeTouchEvent = (tp, x, y, force, props = {}) => {
   const event = new TouchEvent(tp, {
@@ -84,34 +74,6 @@ describe("The event handler", () => {
     Object.defineProperty(fakeScreen, "clientHeight", { get: () => 200 });
 
     expect(fakeScreen).toBeInTheDocument();
-  });
-
-  test("Forwards mouse events", () => {
-    fireEvent(fakeScreen, fakeMouseEvent("mousedown", 10, 10));
-    fireEvent(fakeScreen, fakeMouseEvent("mouseup", 20, 20));
-
-    // Shipped out a mouse event
-    expect(jsep.send.mock.calls[0][0]).toBe("mouse");
-    expect(jsep.send).toHaveBeenCalledTimes(2);
-  });
-
-  test("Forwards keyboard events", () => {
-    fireEvent.keyDown(fakeScreen, { key: "Enter", code: "Enter" });
-    fireEvent.keyUp(fakeScreen, { key: "Enter", code: "Enter" });
-
-    // Shipped out a keyboard event
-    expect(jsep.send.mock.calls[0][0]).toBe("keyboard");
-    expect(jsep.send).toHaveBeenCalledTimes(2);
-  });
-
-  test("Forwards touch events", () => {
-    fireEvent(fakeScreen, fakeTouchEvent("touchstart", 10, 10, 1));
-    fireEvent(fakeScreen, fakeTouchEvent("touchmove", 20, 20, 2));
-    fireEvent(fakeScreen, fakeTouchEvent("touchend", 30, 30, 0));
-
-    // Shipped out a touch event
-    expect(jsep.send.mock.calls[0][0]).toBe("touch");
-    expect(jsep.send).toHaveBeenCalledTimes(3);
   });
 
   test("Normalizes touch pressure of 1.0 to EV_MAX", () => {

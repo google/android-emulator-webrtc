@@ -25,8 +25,8 @@ module.exports = {
     libraryTarget: "umd",
   },
   optimization: {
-    // Set this to false during debuging time..
-    minimize: true,
+    // Minification is not needed.
+    minimize: false,
     usedExports: true,
   },
   module: {
