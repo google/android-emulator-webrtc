@@ -84,16 +84,33 @@ describe("The event handler", () => {
   });
 
 
-  test("Normalizes touch pressure of 0.0 to EV_MIN", () => {
+  test("Normalizes touch pressure >1.0 to EV_MAX", () => {
+    fireEvent(fakeScreen, fakeTouchEvent("touchstart", 10, 10, 10.0));
+
+    // EV_MAX = 0x7fff
+    expect(jsep.send.mock.calls[0][1]["array"].flat(3)[3]).toBe(0x7fff);
+  });
+
+  test("A touch start event has a minimum value >0.01", () => {
     fireEvent(fakeScreen, fakeTouchEvent("touchstart", 10, 10, 0.0));
+
+    // Some browsers do no set the force property, which could be mistaken for
+    // lift event in the emulator. We now make sure we always have a minimum
+    // value.
+    expect(jsep.send.mock.calls[0][1]["array"].flat(3)[3]).toBeGreaterThanOrEqual(327);
+  });
+
+  test("Normalizes touch end event to a pressure of 0.0 to EV_MIN", () => {
+    fireEvent(fakeScreen, fakeTouchEvent("touchend", 10, 10, 0.0));
 
     // So the result we test against is a protobuf message. Protobuf
     // is optimized to not ship the value 0 and will set it to "null".
     expect(jsep.send.mock.calls[0][1]["array"].flat(3)[3]).toBe(null);
   });
 
-  test("Normalizes touch pressure of 0.5 to an integer of half EV_MAX", () => {
+  test("Normalizes touch pressure of 0.5 to an integer of of +/- EV_MAX", () => {
     fireEvent(fakeScreen, fakeTouchEvent("touchstart", 10, 10, 0.5));
-    expect(jsep.send.mock.calls[0][1]["array"].flat(3)[3]).toBe(16384);
+    expect(jsep.send.mock.calls[0][1]["array"].flat(3)[3]).toBeGreaterThan(16380);
+    expect(jsep.send.mock.calls[0][1]["array"].flat(3)[3]).toBeLessThan(16387);
   });
 });

@@ -156,7 +156,6 @@ export default function withMouseKeyHandler(WrappedComponent) {
       this.setState({ mouse: mouse }, this.setMouseCoordinates);
     };
 
-
     /**
      * Scales an axis to linux input codes that the emulator understands.
      *
@@ -164,18 +163,18 @@ export default function withMouseKeyHandler(WrappedComponent) {
      * @param {*} minIn The minimum value, the lower bound of the value param.
      * @param {*} maxIn The maximum value, the upper bound of the value param.
      */
-    scaleAxis = (value, minIn,  maxIn) => {
+    scaleAxis = (value, minIn, maxIn) => {
       const minOut = 0x0; // EV_ABS_MIN
-      const maxOut = 0x7FFF; // EV_ABS_MAX
+      const maxOut = 0x7fff; // EV_ABS_MAX
       const rangeOut = maxOut - minOut;
-      const rangeIn = (maxIn - minIn);
+      const rangeIn = maxIn - minIn;
       if (rangeIn < 1) {
-          return minOut + rangeOut / 2;
+        return minOut + rangeOut / 2;
       }
-      return Math.round((value - minIn) * rangeOut / rangeIn + minOut);
-  }
+      return (((value - minIn) * rangeOut) / rangeIn + minOut) | 0;
+    };
 
-    setTouchCoordinates = (type, touches) => {
+    setTouchCoordinates = (type, touches, minForce, maxForce) => {
       // We need to calculate the offset of the touch events.
       const rect = this.handler.current.getBoundingClientRect();
       const scaleCoordinates = this.scaleCoordinates;
@@ -194,7 +193,11 @@ export default function withMouseKeyHandler(WrappedComponent) {
         protoTouch.setIdentifier(identifier);
 
         // Normalize the force
-        const MT_PRESSURE = this.scaleAxis(force, 0, 1)
+        const MT_PRESSURE = this.scaleAxis(
+          Math.max(minForce, Math.min(maxForce, force)),
+          0,
+          1
+        );
         protoTouch.setPressure(MT_PRESSURE);
         protoTouch.setTouchMajor(Math.max(scaledRadiusX, scaledRadiusY) | 0);
         protoTouch.setTouchMinor(Math.min(scaledRadiusX, scaledRadiusY) | 0);
@@ -209,42 +212,31 @@ export default function withMouseKeyHandler(WrappedComponent) {
       jsep.send("touch", requestTouchEvent);
     };
 
-    handleTouchStart = (e) => {
-      // Make sure they are not processed as mouse events later on.
-      // See https://developer.mozilla.org/en-US/docs/Web/API/Touch_events
-      if (e.cancelable) {
-        e.preventDefault();
-      }
-      this.setTouchCoordinates(e.nativeEvent.type, e.nativeEvent.changedTouches);
-    };
-
-    handleTouchMove = (e) => {
-      if (e.cancelable) {
-        e.preventDefault();
-      }
-      this.setTouchCoordinates(e.nativeEvent.type, e.nativeEvent.changedTouches);
-    };
-
-    handleTouchEnd = (e) => {
-      if (e.cancelable) {
-        e.preventDefault();
-      }
-      console.log(JSON.stringify(e.nativeEvent.touches));
-      this.setTouchCoordinates(e.nativeEvent.type, e.nativeEvent.changedTouches);
-    };
-
-    preventDragHandler = (e) => {
-      if (e.cancelable) {
-        e.preventDefault();
-      }
+    handleTouch = (minForce, maxForce) => {
+      return (e) => {
+        // Make sure they are not processed as mouse events later on.
+        // See https://developer.mozilla.org/en-US/docs/Web/API/Touch_events
+        if (e.cancelable) {
+          e.preventDefault();
+        }
+        // Some browsers do net have a force sensor, so we have to "fake" values
+        // for start/move/end events.
+        this.setTouchCoordinates(
+          e.nativeEvent.type,
+          e.nativeEvent.changedTouches,
+          minForce,
+          maxForce
+        );
+      };
     };
 
     render() {
       return (
         <div /* handle interaction */
-          onTouchStart={this.handleTouchStart}
-          onTouchMove={this.handleTouchMove}
-          onTouchEnd={this.handleTouchEnd}
+          onTouchStart={this.handleTouch(0.01, 1.0)}
+          onTouchMove={this.handleTouch(0.01, 1.0)}
+          onTouchEnd={this.handleTouch(0.0, 0.0)}
+          onTouchCancel={this.handleTouch(0.0, 0.0)}
           onMouseDown={this.handleMouseDown}
           onMouseMove={this.handleMouseMove}
           onMouseUp={this.handleMouseUp}
