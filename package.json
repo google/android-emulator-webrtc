@@ -1,6 +1,6 @@
 {
   "name": "android-emulator-webrtc",
-  "version": "1.0.4-beta.4",
+  "version": "1.0.6",
   "description": "Android Emulator WebRTC module",
   "scripts": {
     "build": "babel src -d dist",

@@ -108,6 +108,10 @@ export default class EmulatorPngView extends Component {
     }
   }
 
+  preventDragHandler = (e) => {
+    e.preventDefault();
+  }
+
   render() {
     const { width } = this.props;
     const self = this;
@@ -120,7 +124,9 @@ export default class EmulatorPngView extends Component {
           height: "100%",
           objectFit: "contain",
           objectPosition: "center",
+
         }}
+        onDragStart={this.preventDragHandler}
       >
         <ResizeObserver
           onResize={(rect) => {
@@ -130,7 +136,7 @@ export default class EmulatorPngView extends Component {
             );
           }}
         />
-        <img src={this.state.png} width="100%" />
+        <img src={this.state.png} width="100%" draggable="false"/>
       </div>
     );
   }

@@ -55,6 +55,7 @@ export default class JsepProtocol {
     this.emulator = emulator;
     this.rtc = rtc;
     this.events = new EventEmitter();
+    this.message_queue = []; // Workaround for race condition bug
     this.poll = poll;
     this.guid = null;
     this.stream = null;
@@ -93,6 +94,7 @@ export default class JsepProtocol {
     this.connected = false;
     this.peerConnection = null;
     this.active = true;
+    this.message_queue = [];
 
     var request = new Empty();
     this.rtc.requestRtcStream(request, {}, (err, response) => {
@@ -225,13 +227,25 @@ export default class JsepProtocol {
     this.peerConnection.addIceCandidate(new RTCIceCandidate(signal));
   };
 
+  _handleSignal = (signal) => {
+    if (signal.start) this._handleStart(signal);
+    if (signal.bye) this._handleBye();
+    if (!!this.peerConnection) {
+      if (signal.sdp) this._handleSDP(signal);
+      if (signal.candidate) this._handleCandidate(signal);
+    }
+  };
+
   _handleJsepMessage = (message) => {
     try {
+      const actions = this.message_queue;
       const signal = JSON.parse(message);
-      if (signal.start) this._handleStart(signal);
-      if (signal.sdp) this._handleSDP(signal);
-      if (signal.bye) this._handleBye();
-      if (signal.candidate) this._handleCandidate(signal);
+      actions.push(signal);
+      if (!!this.peerConnection || signal.start || signal.bye) {
+        while (actions.length > 0) {
+          this._handleSignal(actions.pop());
+        }
+      }
     } catch (e) {
       console.error(
         "Failed to handle message: [" +
