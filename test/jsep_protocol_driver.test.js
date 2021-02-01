@@ -51,7 +51,7 @@ const receiveJsepMessage = (message) => {
   });
 };
 
-const RTCPeerConnectionMock =jest.fn().mockImplementation((cfg) => ({
+const RTCPeerConnectionMock = jest.fn().mockImplementation((cfg) => ({
   ondatachannel: jest.fn(),
   createAnswer: jest.fn(),
   addEventListener: jest.fn(),
@@ -64,16 +64,34 @@ const RTCPeerConnectionMock =jest.fn().mockImplementation((cfg) => ({
 
 Object.defineProperty(window, "RTCPeerConnection", {
   writable: true,
-  value: jest.fn().mockImplementation((cfg) => ({
-    ondatachannel: jest.fn(),
-    createAnswer: jest.fn(),
-    addEventListener: jest.fn(),
-    addIceCandidate: jest.fn(),
-    dispatchEvent: jest.fn(),
-    setRemoteDescription: jest.fn(),
-    setLocalDescription: jest.fn(),
-    close: jest.fn(),
-  })),
+  value: jest.fn().mockImplementation((cfg) => {
+    let sdp = null;
+    let signal = null;
+    let state = null;
+    return {
+      ondatachannel: jest.fn(),
+      createAnswer: jest.fn(),
+      addEventListener: jest.fn(),
+      addIceCandidate: jest.fn(),
+      dispatchEvent: jest.fn(),
+      setRemoteDescription: (desc) => {
+        sdp = desc;
+        state = "have-remote-offer";
+        if (signal) signal();
+      },
+      setLocalDescription: jest.fn(),
+      get currentRemoteDescription() {
+        return sdp;
+      },
+      set onsignalingstatechange(fn) {
+        signal = fn;
+      },
+      get signalingState() {
+        return state;
+      },
+      close: jest.fn(),
+    };
+  }),
 });
 
 Object.defineProperty(window, "RTCIceCandidate", {
@@ -152,12 +170,9 @@ describe("Basic jsep protocol with polling.", () => {
     const { jsep } = jsepProtocol(candidates_and_sdp);
 
     jsep.startStream();
-    // All messages are queued.
-    expect(jsep.message_queue.length).toBe(3);
-
-    // Message queue is flushed after start.
-    jsep.startStream();
-    expect(jsep.message_queue.length).toBe(0);
+    // All candidates are queued.
+    expect(jsep.candidates.length).toBe(2);
+    expect(jsep.sdp).not.toBeNull();
   });
 
   it("Flush message queue after bye", () => {
@@ -166,20 +181,21 @@ describe("Basic jsep protocol with polling.", () => {
     const { jsep } = jsepProtocol(msg);
 
     jsep.startStream();
-    expect(jsep.message_queue.length).toBe(0);
+    expect(jsep.candidates.length).toBe(0);
+    expect(jsep.sdp).toBe(null);
     expect(jsep.peerConnection).toBe(null);
   });
 
   it("Out of order messages handled after start", () => {
     let msg = Array.from(candidates_and_sdp);
-    msg.push({ start: {foo:'bar'} });
+    msg.push({ start: { foo: "bar" } });
     const { jsep } = jsepProtocol(msg);
 
     jsep.startStream();
-    expect(jsep.message_queue.length).toBe(0);
+    expect(jsep.candidates.length).toBe(0);
     expect(jsep.peerConnection).not.toBeNull();
-
+    expect(jsep.sdp).not.toBeNull();
     // Peer connection was initialized with rtc config
-    expect(RTCPeerConnection.mock.calls[0][0]).toStrictEqual({foo : 'bar'});
+    expect(RTCPeerConnection.mock.calls[0][0]).toStrictEqual({ foo: "bar" });
   });
 });

@@ -16,6 +16,7 @@
 import { EventEmitter } from "events";
 import { Empty } from "google-protobuf/google/protobuf/empty_pb";
 import { ThemeProvider } from "@material-ui/core";
+import { kStringMaxLength } from "buffer";
 /**
  * This drives the jsep protocol with the emulator, and can be used to
  * send key/mouse/touch events to the emulator. Events will be send
@@ -55,7 +56,9 @@ export default class JsepProtocol {
     this.emulator = emulator;
     this.rtc = rtc;
     this.events = new EventEmitter();
-    this.message_queue = []; // Workaround for race condition bug
+    this.candidates = []; // Workaround for race condition bug.
+    this.sdp = null; // Workaround for race condition bug.
+    this.haveOffer = false;
     this.poll = poll;
     this.guid = null;
     this.stream = null;
@@ -81,6 +84,9 @@ export default class JsepProtocol {
       this.stream = null;
     }
     this.active = false;
+    this.candidates = [];
+    this.sdp = null;
+    this.haveOffer = false;
     this.events.emit("disconnected", this);
   };
 
@@ -93,8 +99,10 @@ export default class JsepProtocol {
     const self = this;
     this.connected = false;
     this.peerConnection = null;
+    this.haveOffer = false;
+    this.sdp = null;
     this.active = true;
-    this.message_queue = [];
+    this.candidates = [];
 
     var request = new Empty();
     this.rtc.requestRtcStream(request, {}, (err, response) => {
@@ -153,9 +161,6 @@ export default class JsepProtocol {
     }
   };
 
-  _handleDataChannelStatusChange = (e) => {
-    console.log("Data status change " + e);
-  };
 
   send(label, msg) {
     let bytes = msg.serializeBinary();
@@ -192,26 +197,26 @@ export default class JsepProtocol {
 
   _handleStart = (signal) => {
     this.peerConnection = new RTCPeerConnection(signal.start);
-    this.peerConnection.addEventListener(
-      "track",
-      this._handlePeerConnectionTrack,
-      false
-    );
-    this.peerConnection.addEventListener(
-      "icecandidate",
-      this._handlePeerIceCandidate,
-      false
-    );
-    this.peerConnection.addEventListener(
-      "connectionstatechange",
-      this._handlePeerConnectionStateChange,
-      false
-    );
-    this.peerConnection.ondatachannel = (e) => {
-      this._handleDataChannel(e);
-    };
+    this.peerConnection.ontrack = this._handlePeerConnectionTrack;
+    this.peerConnection.onicecandidate = this._handlePeerIceCandidate;
+    this.peerConnection.onconnectionstatechange = this._handlePeerConnectionStateChange;
+    this.peerConnection.ondatachannel = this._handleDataChannel;
+    this.peerConnection.onsignalingstatechange = this._handlePeerState
   };
 
+  _handlePeerState = (event) => {
+    if (!this.peerConnection) {
+      console.log("Peerconnection no longer available, ignoring signal state.");
+    }
+    switch(this.peerConnection.signalingState) {
+        case 'have-remote-offer':
+          this.haveOffer = true;
+          while (this.candidates.length > 0) {
+            this._handleCandidate(this.candidates.shift());
+          }
+          break;
+    }
+  }
   _handleSDP = async (signal) => {
     this.peerConnection.setRemoteDescription(new RTCSessionDescription(signal));
     const answer = await this.peerConnection.createAnswer();
@@ -221,6 +226,7 @@ export default class JsepProtocol {
     } else {
       this.disconnect();
     }
+    this.sdp = null;
   };
 
   _handleCandidate = (signal) => {
@@ -228,24 +234,38 @@ export default class JsepProtocol {
   };
 
   _handleSignal = (signal) => {
-    if (signal.start) this._handleStart(signal);
-    if (signal.bye) this._handleBye();
+    if (signal.start) {
+      this._handleStart(signal);
+    }
+    if (signal.bye) {
+      this._handleBye();
+    }
+    if (signal.sdp) {
+      this.sdp = signal;
+    }
+    if (signal.candidate) {
+      this.candidates.push(signal);
+    }
+
     if (!!this.peerConnection) {
-      if (signal.sdp) this._handleSDP(signal);
-      if (signal.candidate) this._handleCandidate(signal);
+      // We have created a peer connection..
+      if (this.sdp) {
+        this._handleSDP(this.sdp);
+      }
+
+      if (this.haveOffer) {
+        // We have a remote peer, add the candidates in.
+        while (this.candidates.length > 0) {
+          this._handleCandidate(this.candidates.shift());
+        }
+      }
     }
   };
 
   _handleJsepMessage = (message) => {
     try {
-      const actions = this.message_queue;
       const signal = JSON.parse(message);
-      actions.push(signal);
-      if (!!this.peerConnection || signal.start || signal.bye) {
-        while (actions.length > 0) {
-          this._handleSignal(actions.pop());
-        }
-      }
+      this._handleSignal(signal);
     } catch (e) {
       console.error(
         "Failed to handle message: [" +
