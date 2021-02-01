@@ -1,4 +1,3 @@
-
 /*
  * Copyright 2020 The Android Open Source Project
  *
@@ -29,7 +28,9 @@ import {
 } from "../src/proto/emulator_web_client";
 
 jest.mock("../src/proto/emulator_web_client");
-jest.mock("../src/components/emulator/net/jsep_protocol_driver");
+jest.mock("../src/proto/rtc_service_pb");
+jest.mock("../src/proto/emulator_controller_pb");
+
 
 class FakeEmulator extends React.Component {
   render() {
@@ -61,7 +62,7 @@ const fakeTouchEvent = (tp, x, y, force, props = {}) => {
     ...props,
   });
 
-  Object.defineProperty(event, "touches", {
+  Object.defineProperty(event, "changedTouches", {
     get: () => [
       { clientX: x, clientY: y, radiusX: 4, radiusY: 4, force: force },
     ],
@@ -70,12 +71,14 @@ const fakeTouchEvent = (tp, x, y, force, props = {}) => {
 };
 
 const TestView = withMouseKeyHandler(FakeEmulator);
-describe("The event handler", () => {
+describe("The event handler using a real jsep serializer", () => {
+
   const rtcServiceInstance = new RtcService("http://foo");
   const emulatorServiceInstance = new EmulatorControllerService("http://foo");
   let jsep, fakeScreen;
 
   beforeEach(() => {
+    jest.clearAllMocks();
     jsep = new JsepProtocol(emulatorServiceInstance, rtcServiceInstance, true);
 
     render(<TestView emulator={emulatorServiceInstance} jsep={jsep} />);
@@ -91,8 +94,7 @@ describe("The event handler", () => {
     fireEvent(fakeScreen, fakeMouseEvent("mouseup", 20, 20));
 
     // Shipped out a mouse event
-    expect(jsep.send.mock.calls[0][0]).toBe("mouse");
-    expect(jsep.send).toHaveBeenCalledTimes(2);
+    expect(emulatorServiceInstance.sendMouse).toHaveBeenCalledTimes(2);
   });
 
   test("Forwards keyboard events", () => {
@@ -100,8 +102,7 @@ describe("The event handler", () => {
     fireEvent.keyUp(fakeScreen, { key: "Enter", code: "Enter" });
 
     // Shipped out a keyboard event
-    expect(jsep.send.mock.calls[0][0]).toBe("keyboard");
-    expect(jsep.send).toHaveBeenCalledTimes(2);
+    expect(emulatorServiceInstance.sendKey).toHaveBeenCalledTimes(2);
   });
 
   test("Forwards touch events", () => {
@@ -110,7 +111,6 @@ describe("The event handler", () => {
     fireEvent(fakeScreen, fakeTouchEvent("touchend", 30, 30, 0));
 
     // Shipped out a touch event
-    expect(jsep.send.mock.calls[0][0]).toBe("touch");
-    expect(jsep.send).toHaveBeenCalledTimes(3);
+    expect(emulatorServiceInstance.sendTouch).toHaveBeenCalledTimes(3);
   });
 });

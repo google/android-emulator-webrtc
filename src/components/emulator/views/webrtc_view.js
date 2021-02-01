@@ -103,6 +103,7 @@ export default class EmulatorWebrtcView extends Component {
   // place with this component.
   safePlay = () => {
     const video = this.video.current;
+    const self = this;
     if (!video) {
       // Component was unmounted.
       return;
@@ -117,7 +118,7 @@ export default class EmulatorWebrtcView extends Component {
         })
         .catch((error) => {
           // Notify listeners that we cannot start.
-          this.onError(error);
+          self.onError(error);
         });
     }
   };
