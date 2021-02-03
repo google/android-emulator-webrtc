@@ -56,9 +56,16 @@ export default class JsepProtocol {
     this.emulator = emulator;
     this.rtc = rtc;
     this.events = new EventEmitter();
-    this.candidates = []; // Workaround for race condition bug.
-    this.sdp = null; // Workaround for race condition bug.
-    this.haveOffer = false;
+
+    // Workaround for older emulators that send messages out of order
+    // and do not handle all answers properly.
+    this.old_emu_patch = {
+      candidates: [],
+      sdp: null,
+      haveOffer: false,
+      answer: false,
+    };
+
     this.poll = poll;
     this.guid = null;
     this.stream = null;
@@ -84,9 +91,12 @@ export default class JsepProtocol {
       this.stream = null;
     }
     this.active = false;
-    this.candidates = [];
-    this.sdp = null;
-    this.haveOffer = false;
+    this.old_emu_patch = {
+      candidates: [],
+      sdp: null,
+      haveOffer: false,
+      answer: false,
+    };
     this.events.emit("disconnected", this);
   };
 
@@ -99,11 +109,13 @@ export default class JsepProtocol {
     const self = this;
     this.connected = false;
     this.peerConnection = null;
-    this.haveOffer = false;
-    this.sdp = null;
     this.active = true;
-    this.candidates = [];
-
+    this.old_emu_patch = {
+      candidates: [],
+      sdp: null,
+      haveOffer: false,
+      answer: false,
+    };
     var request = new Empty();
     this.rtc.requestRtcStream(request, {}, (err, response) => {
       if (err) {
@@ -161,7 +173,6 @@ export default class JsepProtocol {
     }
   };
 
-
   send(label, msg) {
     let bytes = msg.serializeBinary();
     let forwarder = this.event_forwarders[label];
@@ -201,32 +212,39 @@ export default class JsepProtocol {
     this.peerConnection.onicecandidate = this._handlePeerIceCandidate;
     this.peerConnection.onconnectionstatechange = this._handlePeerConnectionStateChange;
     this.peerConnection.ondatachannel = this._handleDataChannel;
-    this.peerConnection.onsignalingstatechange = this._handlePeerState
+    this.peerConnection.onsignalingstatechange = this._handlePeerState;
   };
 
   _handlePeerState = (event) => {
     if (!this.peerConnection) {
       console.log("Peerconnection no longer available, ignoring signal state.");
     }
-    switch(this.peerConnection.signalingState) {
-        case 'have-remote-offer':
-          this.haveOffer = true;
-          while (this.candidates.length > 0) {
-            this._handleCandidate(this.candidates.shift());
-          }
-          break;
+    switch (this.peerConnection.signalingState) {
+      case "have-remote-offer":
+        this.old_emu_patch.haveOffer = true;
+        while (this.old_emu_patch.candidates.length > 0) {
+          this._handleCandidate(this.old_emu_patch.candidates.shift());
+        }
+        break;
     }
-  }
+  };
+
   _handleSDP = async (signal) => {
+    // We should not call this more than once..
+    this.old_emu_patch.sdp = null;
     this.peerConnection.setRemoteDescription(new RTCSessionDescription(signal));
     const answer = await this.peerConnection.createAnswer();
     if (answer) {
-      this.peerConnection.setLocalDescription(answer);
-      this._sendJsep({ sdp: answer });
+      // Older emulators cannot handle multiple answers, so make sure we do not send one
+      // again.
+      if (!this.old_emu_patch.answer) {
+        this.old_emu_patch.answer = true;
+        this.peerConnection.setLocalDescription(answer);
+        this._sendJsep({ sdp: answer });
+      }
     } else {
       this.disconnect();
     }
-    this.sdp = null;
   };
 
   _handleCandidate = (signal) => {
@@ -240,23 +258,23 @@ export default class JsepProtocol {
     if (signal.bye) {
       this._handleBye();
     }
-    if (signal.sdp) {
-      this.sdp = signal;
+    if (signal.sdp && !this.old_emu_patch.sdp) {
+      this.old_emu_patch.sdp = signal;
     }
     if (signal.candidate) {
-      this.candidates.push(signal);
+      this.old_emu_patch.candidates.push(signal);
     }
 
     if (!!this.peerConnection) {
       // We have created a peer connection..
-      if (this.sdp) {
-        this._handleSDP(this.sdp);
+      if (this.old_emu_patch.sdp) {
+        this._handleSDP(this.old_emu_patch.sdp);
       }
 
       if (this.haveOffer) {
         // We have a remote peer, add the candidates in.
-        while (this.candidates.length > 0) {
-          this._handleCandidate(this.candidates.shift());
+        while (this.old_emu_patch.candidates.length > 0) {
+          this._handleCandidate(this.old_emu_patch.candidates.shift());
         }
       }
     }
@@ -300,10 +318,17 @@ export default class JsepProtocol {
       self._handleJsepMessage(msg);
     });
     this.stream.on("error", (e) => {
-      self.disconnect();
+      console.log("Jsep message stream error:", e);
+      if (self.connected) {
+        console.log("Attempting to reconnect to jsep message stream.");
+        self._streamJsepMessage();
+      }
     });
     this.stream.on("end", (e) => {
-      self.disconnect();
+      if (self.connected) {
+        console.log("Stream end while still connected.. Reconnecting");
+        self._streamJsepMessage();
+      }
     });
   };
 
