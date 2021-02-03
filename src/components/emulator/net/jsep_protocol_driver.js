@@ -318,10 +318,17 @@ export default class JsepProtocol {
       self._handleJsepMessage(msg);
     });
     this.stream.on("error", (e) => {
-      self.disconnect();
+      console.log("Jsep message stream error:", e);
+      if (self.connected) {
+        console.log("Attempting to reconnect to jsep message stream.");
+        self._streamJsepMessage();
+      }
     });
     this.stream.on("end", (e) => {
-      self.disconnect();
+      if (self.connected) {
+        console.log("Stream end while still connected.. Reconnecting");
+        self._streamJsepMessage();
+      }
     });
   };
 
