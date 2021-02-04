@@ -90,13 +90,6 @@ $(PROTODIR)/%_pb.js  : $(PROTOSRCDIR)/%.proto $(PROTODIR) protoc-gen-grpc-web
 $(PROTODIR)/%_grpc_web_pb.js : $(PROTODIR)/%_pb.js
 	@test -f $@  && $(PREFIX_ESLINT) $@ || true
 
-$(PROTODIR)/emulator_web_client.js:
-	if [ -f "$(PROTODIR)/rtc_service_pb.js" ]; then  \
-		cp ext/emulator_web_client_v2.js $(PROTODIR)/emulator_web_client.js; \
-	else  \
-		cp ext/emulator_web_client_v1.js $(PROTODIR)/emulator_web_client.js; \
-	fi
-
 
 protoc: $(PROTO_OBJS) $(PROXY_OBJS) $(PROTODIR)/emulator_web_client.js
 

@@ -1,4 +1,4 @@
-src/proto/
+src/proto/*pb.js
 
 # distribution
 # dist

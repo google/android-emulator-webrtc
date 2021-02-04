@@ -1,0 +1,41 @@
+steps:
+  - name: "gcr.io/cloud-builders/gcloud"
+    args:
+      - kms
+      - decrypt
+      - --ciphertext-file=npmrc.enc
+      - --plaintext-file=/root/.npmrc
+      - --location=global
+      - --keyring=my-keyring
+      - --key=npm-key
+    volumes:
+      - name: "home"
+        path: /root/
+  - name: gcr.io/emu-dev-cts/protoc
+    args:
+      [
+        "--include_imports",
+        "--include_source_info",
+        "--proto_path",
+        "./proto",
+        "--descriptor_set_out",
+        "api_descriptor.pb",
+        "--plugin=protoc-gen-grpc-web=/protoc/bin/protoc-gen-grpc-web",
+        "--js_out=import_style=commonjs:src/proto",
+        "--grpc-web_out=import_style=commonjs,mode=grpcwebtext:src/proto",
+        "./proto/emulator_controller.proto",
+        "./proto/rtc_service.proto",
+      ]
+  - name: "gcr.io/cloud-builders/npm"
+    args: ["install"]
+  - name: "gcr.io/cloud-builders/npm"
+    args: ["run", "build"]
+  - name: "gcr.io/cloud-builders/npm"
+    args: ["test"]
+  - name: "gcr.io/cloud-builders/npm"
+    args: ["publish", "/workspace", "--dry-run"]
+    env:
+      - HOME=/root/
+    volumes:
+      - name: "home"
+        path: /root/
