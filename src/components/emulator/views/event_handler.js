@@ -103,6 +103,10 @@ export default function withMouseKeyHandler(WrappedComponent) {
 
     handleKey = (eventType) => {
       return (e) => {
+        // Disable jumping to next control when pressing the space bar.
+        if (e.keyCode === 32) {
+          e.preventDefault();
+        }
         var request = new Proto.KeyboardEvent();
         request.setEventtype(
           eventType === "KEYDOWN"

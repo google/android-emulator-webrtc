@@ -1,7 +1,7 @@
-src/proto/
+src/proto/*pb.js
 
 # distribution
-dist
+# dist
 
 # dependencies
 node_modules
