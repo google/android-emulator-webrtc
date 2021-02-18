@@ -124,7 +124,6 @@ export default class EmulatorPngView extends Component {
           height: "100%",
           objectFit: "contain",
           objectPosition: "center",
-
         }}
         onDragStart={this.preventDragHandler}
       >
@@ -136,7 +135,12 @@ export default class EmulatorPngView extends Component {
             );
           }}
         />
-        <img src={this.state.png} width="100%" draggable="false"/>
+        <img
+          src={this.state.png}
+          width="100%"
+          draggable="false"
+          style={{ pointerEvents: "none" }}
+        />
       </div>
     );
   }
