@@ -51,7 +51,7 @@ export default class EmulatorPngView extends Component {
     png: "",
     width: null,
     height: null,
-    connect: "disconnected",
+    connect: "connecting",
   };
 
   broadcastState() {
@@ -74,7 +74,7 @@ export default class EmulatorPngView extends Component {
   }
 
   startStream() {
-    const { width, height, connected } = this.state;
+    const { width, height, connect } = this.state;
     if (this.screen) {
       this.screen.cancel();
     }
@@ -87,30 +87,42 @@ export default class EmulatorPngView extends Component {
 
     var self = this;
     const { emulator, poll } = this.props;
-    if (poll && state !== "disconnected") {
+    if (poll && connect !== "disconnected") {
       emulator.getScreenshot(request, {}, (err, response) => {
         this.setState({ connect: "connected" }, this.broadcastState);
         // Update the image with the one we just received.
-        self.setState({
-          png: "data:image/jpeg;base64," + response.getImage_asB64(),
-        });
-        this.startStream(width, height);
+        self.setState(
+          {
+            png: "data:image/jpeg;base64," + response.getImage_asB64(),
+          },
+          this.startStream
+        );
       });
     } else {
       this.screen = emulator.streamScreenshot(request);
       this.screen.on("data", (response) => {
-        this.setState({ connect: "connected" }, this.broadcastState);
+        self.setState({ connect: "connected" }, this.broadcastState);
         // Update the image with the one we just received.
         self.setState({
           png: "data:image/jpeg;base64," + response.getImage_asB64(),
         });
+      });
+      this.screen.on("error", (e) => {
+        console.warn("Screenshot stream broken", e)
+        const { connect } = this.state;
+        if (connect === "connected") {
+          console.log("Reconnecting..");
+          self.setState({ connect: "connecting" }, this.startStream);
+        } else {
+          self.setState({ connect: "disconnected" }, this.broadcastState);
+        }
       });
     }
   }
 
   preventDragHandler = (e) => {
     e.preventDefault();
-  }
+  };
 
   render() {
     const { width } = this.props;
@@ -128,7 +140,7 @@ export default class EmulatorPngView extends Component {
         onDragStart={this.preventDragHandler}
       >
         <ResizeObserver
-          onResize={(rect) => {
+          onReflow={(rect) => {
             self.setState(
               { width: rect.width, height: rect.height },
               self.startStream
