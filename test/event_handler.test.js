@@ -17,9 +17,8 @@ import "@testing-library/jest-dom";
 
 import React from "react";
 import { render, fireEvent, screen } from "@testing-library/react";
+import { fakeMouseEvent, fakeTouchEvent} from "./fake_events";
 import withMouseKeyHandler from "../src/components/emulator/views/event_handler";
-import * as Proto from "../src/proto/emulator_controller_pb";
-import * as Rtc from "../src/proto/rtc_service_pb";
 
 import JsepProtocol from "../src/components/emulator/net/jsep_protocol_driver";
 import {
@@ -42,33 +41,6 @@ class FakeEmulator extends React.Component {
     );
   }
 }
-
-const fakeMouseEvent = (tp, x, y, props = {}) => {
-  const event = new MouseEvent(tp, {
-    bubbles: true,
-    cancelable: true,
-    ...props,
-  });
-
-  Object.defineProperty(event, "offsetX", { get: () => x });
-  Object.defineProperty(event, "offsetY", { get: () => y });
-  return event;
-};
-
-const fakeTouchEvent = (tp, x, y, force, props = {}) => {
-  const event = new TouchEvent(tp, {
-    bubbles: true,
-    cancelable: true,
-    ...props,
-  });
-
-  Object.defineProperty(event, "changedTouches", {
-    get: () => [
-      { clientX: x, clientY: y, radiusX: 4, radiusY: 4, force: force },
-    ],
-  });
-  return event;
-};
 
 const TestView = withMouseKeyHandler(FakeEmulator);
 describe("The event handler using a real jsep serializer", () => {
