@@ -43,12 +43,9 @@ endif
 
 MAKEFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
 CURRENT_DIR :=  $(abspath $(MAKEFILE_PATH)/..)
-QEMU_ROOT := $(abspath $(AOSP)/external/qemu)
-GRPC_ROOT := $(QEMU_ROOT)/objs/distribution/emulator/lib
-
 # Protobuf settings. If you are running this in the AOSP tree you will want to run ninja install first.
 PROTODIR 	  := $(CURRENT_DIR)/src/proto/
-PROTOSRCDIR   := $(if $(wildcard $(GRPC_ROOT)/*.proto), $(GRPC_ROOT), $(ANDROID_SDK_ROOT)/emulator/lib)
+PROTOSRCDIR   := $(CURRENT_DIR)/proto
 PROTO_SRC     := $(wildcard $(PROTOSRCDIR)/*.proto)
 PROTO_OBJS    := $(addprefix $(PROTODIR)/, $(notdir $(PROTO_SRC:.proto=_pb.js)))
 PROXY_OBJS    := $(addprefix $(PROTODIR)/, $(notdir $(PROTO_SRC:.proto=_grpc_web_pb.js)))
@@ -61,12 +58,10 @@ LDFLAGS += -L$(PROTOLIB) -lprotoc -lprotobuf -lpthread -ldl
 
 .PHONY: build-release run-release develop stop
 
-all: build
+all: check
 
 clean:
-	rm -rf $(PROTODIR)
-	rm -rf emulator
-
+	rm -rf $(PROTODIR)/*pb.js
 
 $(PROTODIR):
 	@mkdir -p $(PROTODIR)
@@ -90,19 +85,19 @@ $(PROTODIR)/%_pb.js  : $(PROTOSRCDIR)/%.proto $(PROTODIR) protoc-gen-grpc-web
 $(PROTODIR)/%_grpc_web_pb.js : $(PROTODIR)/%_pb.js
 	@test -f $@  && $(PREFIX_ESLINT) $@ || true
 
-
-protoc: $(PROTO_OBJS) $(PROXY_OBJS) $(PROTODIR)/emulator_web_client.js
+protoc: $(PROTO_OBJS) $(PROXY_OBJS)
 
 protoc-gen-grpc-web: protoc-plugin/grpc_generator.o
 	$(CXX) $^ $(LDFLAGS) -o $@
 
-deps: protoc system-check
+deps: system-check protoc
 	@npm install
-
 
 build: deps
 	@npm run build
 
+check: build
+	@npm run test
 
 system-check:
 ifneq ($(HAS_VALID_PROTOC),true)
