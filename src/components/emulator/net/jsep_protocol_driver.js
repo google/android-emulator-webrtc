@@ -271,7 +271,7 @@ export default class JsepProtocol {
         this._handleSDP(this.old_emu_patch.sdp);
       }
 
-      if (this.haveOffer) {
+      if (this.old_emu_patch.haveOffer) {
         // We have a remote peer, add the candidates in.
         while (this.old_emu_patch.candidates.length > 0) {
           this._handleCandidate(this.old_emu_patch.candidates.shift());
