@@ -1,8 +1,8 @@
 FROM debian:buster-slim
 
-ARG VERS=3.12.4
+ARG VERS=23.1
 ARG ARCH=linux-x86_64
-ARG GRPC_WEB=1.2.1
+ARG GRPC_WEB=1.4.2
 
 RUN echo "Building protoc Cloud Builder ${VERS}-${ARCH}" && \
     apt-get update -y && apt-get upgrade -y && \
