@@ -1,3 +1,6 @@
+/**
+ * @jest-environment jsdom
+ */
 /*
  * Copyright 2020 The Android Open Source Project
  *

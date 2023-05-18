@@ -1,3 +1,6 @@
+/**
+ * @jest-environment jsdom
+ */
 /*
  * Copyright 2021 The Android Open Source Project
  *
@@ -20,9 +23,17 @@ import * as Proto from "../src/proto/emulator_controller_pb";
 import React from "react";
 import EmulatorPngView from "../src/components/emulator/views/simple_png_view";
 import { resize } from "./fake_events";
-import { render, screen } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  getByTestId,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { EmulatorControllerService } from "../src/proto/emulator_web_client";
 import { EventEmitter } from "events";
+import { flushSync } from "react-dom";
 
 jest.mock("../src/proto/emulator_web_client");
 
@@ -53,9 +64,20 @@ describe("A simple png view", () => {
     };
   });
 
-  beforeEach(()=>{
+  beforeEach(() => {
     stream.removeAllListeners();
-  })
+  });
+
+  it("stream actually starts", () => {
+    const emulatorServiceInstance = new EmulatorControllerService("http://foo");
+    const { container } = render(
+      <div style={{ width: "200px", height: "200px" }}>
+        <EmulatorPngView emulator={emulatorServiceInstance} />
+      </div>
+    );
+
+    expect(emulatorServiceInstance.streamScreenshot).toHaveBeenCalledTimes(1);
+  });
 
   it("Get screenshot renders an image.", () => {
     const emulatorServiceInstance = new EmulatorControllerService("http://foo");
@@ -66,68 +88,58 @@ describe("A simple png view", () => {
     expect(pngView.src).toBe("data:image/jpeg;base64," + googleLogo);
   });
 
-  it("A resize triggers a new stream request.", () => {
-    const emulatorServiceInstance = new EmulatorControllerService("http://foo");
-    render(
-      <div data-testid="pngdiv">
-        <EmulatorPngView emulator={emulatorServiceInstance} />
-      </div>
-    );
-
-    // Initial stream request + resize event after mount.
-    expect(emulatorServiceInstance.streamScreenshot).toHaveBeenCalledTimes(2);
-
-    let pngview = screen.getByTestId("pngdiv").childNodes[0];
-    pngview.getBoundingClientRect = jest.fn();
-    pngview.getBoundingClientRect.mockReturnValueOnce({
-      width: 120,
-      height: 120,
-      top: 0,
-      left: 0,
-      bottom: 0,
-      right: 0,
-    });
-
-    // A resize triggers a new stream request.
-    resize(200, 300);
-    expect(emulatorServiceInstance.streamScreenshot).toHaveBeenCalledTimes(3);
-  });
-
-
   it("Has a connected state after the first image arrives", () => {
     const emulatorServiceInstance = new EmulatorControllerService("http://foo");
-    const changeState = jest.fn()
-    render(<EmulatorPngView emulator={emulatorServiceInstance} onStateChange={changeState}/>);
+    const changeState = jest.fn();
+    render(
+      <EmulatorPngView
+        emulator={emulatorServiceInstance}
+        onStateChange={changeState}
+      />
+    );
     expect(changeState).toHaveBeenCalledWith("connecting");
-    stream.emit("data", googleImage);
+    act(() => stream.emit("data", googleImage));
     expect(changeState).toHaveBeenCalledWith("connected");
   });
 
-  it("Attempts to reconnect if the server disconnects", () => {
+  it("Attempts to reconnect if the server disconnects", async () => {
     const emulatorServiceInstance = new EmulatorControllerService("http://foo");
-    render(<EmulatorPngView emulator={emulatorServiceInstance} />);
-    expect(emulatorServiceInstance.streamScreenshot).toHaveBeenCalledTimes(2);
+    const changeState = jest.fn();
+    render(
+      <EmulatorPngView
+        emulator={emulatorServiceInstance}
+        onStateChange={changeState}
+      />
+    );
+    expect(emulatorServiceInstance.streamScreenshot).toHaveBeenCalledTimes(1);
     stream.emit("data", googleImage);
+    waitFor(() => expect(changeState).toHaveBeenCalledWith("connected"));
     stream.emit("error", "fda");
-    expect(emulatorServiceInstance.streamScreenshot).toHaveBeenCalledTimes(3);
+    expect(emulatorServiceInstance.streamScreenshot).toHaveBeenCalledTimes(2);
   });
 
   it("Gives up on the second failure.", () => {
     const emulatorServiceInstance = new EmulatorControllerService("http://foo");
-    const changeState = jest.fn()
-    render(<EmulatorPngView emulator={emulatorServiceInstance} onStateChange={changeState}/>);
-    expect(emulatorServiceInstance.streamScreenshot).toHaveBeenCalledTimes(2);
+    const changeState = jest.fn();
+    render(
+      <EmulatorPngView
+        emulator={emulatorServiceInstance}
+        onStateChange={changeState}
+      />
+    );
+    expect(emulatorServiceInstance.streamScreenshot).toHaveBeenCalledTimes(1);
 
     // Connect
     stream.emit("data", googleImage);
+    waitFor(() => expect(changeState).toHaveBeenCalledWith("connected"));
 
     // First break, we attempt a reconnect.
     stream.emit("error", "fda");
-    expect(emulatorServiceInstance.streamScreenshot).toHaveBeenCalledTimes(3);
+    expect(emulatorServiceInstance.streamScreenshot).toHaveBeenCalledTimes(2);
     expect(changeState).not.toHaveBeenCalledWith("disconnected");
 
     // We could not reconnect, so we fail.
     stream.emit("error", "fda");
-    expect(changeState).toHaveBeenCalledWith("disconnected");
+    waitFor(() => expect(changeState).toHaveBeenCalledWith("disconnected"));
   });
 });

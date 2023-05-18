@@ -14,75 +14,44 @@
  * limitations under the License.
  */
 import PropTypes from "prop-types";
-import React, { Component } from "react";
+import React, { useEffect, useRef, useState } from "react";
 
-/**
- * A view on the emulator that is using WebRTC. It will use the Jsep protocol over gRPC to
- * establish the video streams.
- */
-export default class EmulatorWebrtcView extends Component {
-  static propTypes = {
-    /** Jsep protocol driver, used to establish the video stream. */
-    jsep: PropTypes.object,
-    /** Function called when the connection state of the emulator changes */
-    onStateChange: PropTypes.func,
-    /** Function called when the audio track becomes available */
-    onAudioStateChange: PropTypes.func,
-    /** True if you wish to mute the audio */
-    muted: PropTypes.bool,
-    /** Volume of the video element, value between 0 and 1.  */
-    volume: PropTypes.number,
-    /** Function called when an error arises, like play failures due to muting */
-    onError: PropTypes.func,
-  };
+const EmulatorWebrtcView = ({
+  jsep,
+  onStateChange,
+  onAudioStateChange,
+  muted,
+  volume,
+  onError,
+}) => {
+  const [audio, setAudio] = useState(false);
+  const videoRef = useRef(null);
+  const [connect, setConnect] = useState("connecting");
 
-  state = {
-    audio: false,
-  };
 
-  static defaultProps = {
-    muted: true,
-    volume: 1.0,
-    onError: (e) => console.error("WebRTC error: " + e),
-    onAudioStateChange: (e) =>
-      console.log("Webrtc audio became available: " + e),
-  };
-
-  constructor(props) {
-    super(props);
-    this.video = React.createRef();
-  }
-
-  broadcastState() {
-    const { onStateChange } = this.props;
+  useEffect(() => {
+    console.log("Webrtc state changed to: " + connect);
     if (onStateChange) {
-      onStateChange(this.state.connect);
+      onStateChange(connect);
     }
-  }
+  }, [connect]);
 
-  componentWillUnmount() {
-    this.props.jsep.disconnect();
-  }
 
-  componentDidMount() {
-    this.props.jsep.on("connected", this.onConnect);
-    this.props.jsep.on("disconnected", this.onDisconnect);
-    this.setState({ connect: "connecting" }, () => {
-      this.props.jsep.startStream();
-      this.broadcastState();
-    });
-  }
+  useEffect(() => {
+    console.log("Webrtc audio state changed to: " + audio);
+    if (onAudioStateChange) {
+      onAudioStateChange(audio);
+    }
+  }, [audio]);
 
-  onDisconnect = () => {
-    this.setState({ connect: "disconnected" }, this.broadcastState);
-    this.setState({ audio: false }, () => {
-      this.props.onAudioStateChange(false);
-    });
+  const onDisconnect = () => {
+    setConnect("disconnected");
+    setAudio(false);
   };
 
-  onConnect = (track) => {
-    this.setState({ connect: "connected" }, this.broadcastState);
-    const video = this.video.current;
+  const onConnect = (track) => {
+    setConnect("connected");
+    const video = videoRef.current;
     if (!video) {
       // Component was unmounted.
       return;
@@ -93,23 +62,17 @@ export default class EmulatorWebrtcView extends Component {
     }
     video.srcObject.addTrack(track);
     if (track.kind === "audio") {
-      this.setState({ audio: true }, () => {
-        this.props.onAudioStateChange(true);
-      });
+      setAudio(true);
     }
   };
 
-  // Starts playing the video stream, muting it if no interaction has taken
-  // place with this component.
-  safePlay = () => {
-    const video = this.video.current;
-    const self = this;
+  const safePlay = () => {
+    const video = videoRef.current;
     if (!video) {
       // Component was unmounted.
       return;
     }
 
-    // See https://developer.mozilla.org/en-US/docs/Web/API/HTMLMediaElement/play
     const possiblePromise = video.play();
     if (possiblePromise) {
       possiblePromise
@@ -118,37 +81,66 @@ export default class EmulatorWebrtcView extends Component {
         })
         .catch((error) => {
           // Notify listeners that we cannot start.
-          self.onError(error);
+          onError(error);
         });
     }
   };
 
-  onCanPlay = (e) => {
-    this.safePlay();
+  const onCanPlay = () => {
+    safePlay();
   };
 
-  onContextMenu = (e) => {
+  const onContextMenu = (e) => {
     e.preventDefault();
   };
 
-  render() {
-    const { muted, volume } = this.props;
-    return (
-      <video
-        ref={this.video}
-        style={{
-          display: "block",
-          position: "relative",
-          width: "100%",
-          height: "100%",
-          objectFit: "contain",
-          objectPosition: "center",
-        }}
-        volume={volume}
-        muted={muted}
-        onContextMenu={this.onContextMenu}
-        onCanPlay={this.onCanPlay}
-      />
-    );
-  }
-}
+  useEffect(() => {
+    jsep.on("connected", onConnect);
+    jsep.on("disconnected", onDisconnect);
+    jsep.startStream()
+
+    setConnect("connecting");
+
+    return () => {
+      jsep.disconnect();
+    };
+  }, []);
+
+  return (
+    <video
+      ref={videoRef}
+      style={{
+        display: "block",
+        position: "relative",
+        width: "100%",
+        height: "100%",
+        objectFit: "contain",
+        objectPosition: "center",
+      }}
+      volume={volume}
+      muted={muted}
+      onContextMenu={onContextMenu}
+      onCanPlay={onCanPlay}
+    />
+  );
+};
+
+EmulatorWebrtcView.propTypes = {
+  jsep: PropTypes.object,
+  onStateChange: PropTypes.func,
+  onAudioStateChange: PropTypes.func,
+  muted: PropTypes.bool,
+  volume: PropTypes.number,
+  onError: PropTypes.func,
+};
+
+EmulatorWebrtcView.defaultProps = {
+  muted: true,
+  volume: 1.0,
+  onError: (e) => console.error("WebRTC error: " + e),
+  onAudioStateChange: (e) =>
+    console.log("Webrtc audio became available: " + e),
+};
+
+export default EmulatorWebrtcView;
+
