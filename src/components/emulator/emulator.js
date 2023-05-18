@@ -191,18 +191,11 @@ class Emulator extends Component {
   };
 
   render() {
-    const {
-      width,
-      height,
-      view,
-      poll,
-      muted,
-      onStateChange,
-      onError,
-      volume,
-    } = this.props;
+    const { width, height, view, poll, muted, onStateChange, onError, volume } =
+      this.props;
     const SpecificView = this.components[view] || RtcView;
 
+    console.log(`render ${width}x${height}`);
     return (
       <SpecificView
         ref={this.view}

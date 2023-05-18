@@ -1,3 +1,7 @@
+
+/**
+ * @jest-environment jsdom
+ */
 /*
  * Copyright 2020 The Android Open Source Project
  *
@@ -48,8 +52,6 @@ const renderIgnoringUnstableFlushDiscreteUpdates = (component) => {
 };
 
 describe("The emulator", () => {
-  let fakeScreen;
-
   beforeEach(() => {
     // Clear all instances and calls to constructor and all methods:
     RtcService.mockClear();
@@ -57,8 +59,7 @@ describe("The emulator", () => {
   });
 
   test("Creates gRPC services", async () => {
-    let state;
-    renderIgnoringUnstableFlushDiscreteUpdates(
+    render(
       <Emulator uri="/test" width={300} height={300} />
     );
 
@@ -68,8 +69,7 @@ describe("The emulator", () => {
   });
   test("Tries to establish a webrtc connection", async () => {
     let state;
-
-    renderIgnoringUnstableFlushDiscreteUpdates(
+    render(
       <Emulator
         uri="/test"
         width={300}
@@ -86,7 +86,7 @@ describe("The emulator", () => {
 
   test("Sends a gps location to the emulator", async () => {
     // Let's go to Seattle!
-    renderIgnoringUnstableFlushDiscreteUpdates(
+    render(
       <Emulator
         uri="/test"
         width={300}

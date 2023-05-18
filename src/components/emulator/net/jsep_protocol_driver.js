@@ -15,8 +15,6 @@
  */
 import { EventEmitter } from "events";
 import { Empty } from "google-protobuf/google/protobuf/empty_pb";
-import { ThemeProvider } from "@material-ui/core";
-import { kStringMaxLength } from "buffer";
 /**
  * This drives the jsep protocol with the emulator, and can be used to
  * send key/mouse/touch events to the emulator. Events will be send
