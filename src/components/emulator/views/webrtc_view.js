@@ -30,7 +30,6 @@ const EmulatorWebrtcView = ({
 
 
   useEffect(() => {
-    console.log("Webrtc state changed to: " + connect);
     if (onStateChange) {
       onStateChange(connect);
     }
@@ -38,7 +37,6 @@ const EmulatorWebrtcView = ({
 
 
   useEffect(() => {
-    console.log("Webrtc audio state changed to: " + audio);
     if (onAudioStateChange) {
       onAudioStateChange(audio);
     }
@@ -138,8 +136,6 @@ EmulatorWebrtcView.defaultProps = {
   muted: true,
   volume: 1.0,
   onError: (e) => console.error("WebRTC error: " + e),
-  onAudioStateChange: (e) =>
-    console.log("Webrtc audio became available: " + e),
 };
 
 export default EmulatorWebrtcView;

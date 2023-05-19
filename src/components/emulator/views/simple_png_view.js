@@ -1,5 +1,5 @@
 import PropTypes from "prop-types";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import * as Proto from "../../../proto/emulator_controller_pb";
 
 const EmulatorPngView = ({
@@ -25,7 +25,6 @@ const EmulatorPngView = ({
   }, [width, height]);
 
   useEffect(() => {
-    console.log("Png state changed to: " + connect);
     if (onStateChange) {
       onStateChange(connect);
     }
