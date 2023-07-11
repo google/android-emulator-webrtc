@@ -230,14 +230,14 @@ export default class JsepProtocol {
   _handleSDP = async (signal) => {
     // We should not call this more than once..
     this.old_emu_patch.sdp = null;
-    this.peerConnection.setRemoteDescription(new RTCSessionDescription(signal));
+    await this.peerConnection.setRemoteDescription(new RTCSessionDescription(signal));
     const answer = await this.peerConnection.createAnswer();
     if (answer) {
       // Older emulators cannot handle multiple answers, so make sure we do not send one
       // again.
       if (!this.old_emu_patch.answer) {
         this.old_emu_patch.answer = true;
-        this.peerConnection.setLocalDescription(answer);
+        await this.peerConnection.setLocalDescription(answer);
         this._sendJsep({ sdp: answer });
       }
     } else {
@@ -245,8 +245,8 @@ export default class JsepProtocol {
     }
   };
 
-  _handleCandidate = (signal) => {
-    this.peerConnection.addIceCandidate(new RTCIceCandidate(signal));
+  _handleCandidate = async (signal) => {
+    await this.peerConnection.addIceCandidate(new RTCIceCandidate(signal));
   };
 
   _handleSignal = (signal) => {
